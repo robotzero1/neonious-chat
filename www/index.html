@@ -1,0 +1,202 @@
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<head>
+	<title>Welcome</title>
+	<link rel="icon" href="favicon.png" type="image/png">
+	<link rel="stylesheet" href="chatstyles.css">
+
+</head>
+
+<body>
+
+
+	<div class="container clearfix">
+
+		<div id="avatars" style="display:none">
+			<p class='explain'>Choose your avatar..</p>
+			<div id="image-list"></div>
+		</div>
+
+		<div id="chat" style="display:none">
+
+			<div class="chat-header clearfix">
+				<div id="current-user"> </div>
+			</div>
+
+			<div id="chat-history">
+				<ul id="message-window"></ul>
+			</div>
+
+			<div class="chat-message clearfix">
+				<form onsubmit="javascript:return messageSubmit()">
+					<textarea name="message-to-send" id="message-send" placeholder="Type your message" rows="3"></textarea>
+                    <button>Send</button>
+                </form>
+            </div>
+
+        </div> <!-- end chat -->
+    </div> <!-- end container -->
+
+
+
+
+<script type="text/javascript">
+
+        // Helper function to escape HTML, so no XSS is possible
+        var entityMap = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': '&quot;',
+            "'": '&#39;',
+            "/": '&#x2F;'
+        };
+
+        var audio = new Audio('sounds/ping.mp3');
+        var chatHistoryWindow = document.getElementById('chat-history');
+        var messageWindow = document.getElementById('message-window');
+        var messageTextArea = document.getElementById('message-send')
+
+
+
+        function escapeHTML(string) {
+            return String(string).replace(/[&<>"'\/]/g, function (s) {
+                return entityMap[s];
+            });
+        }
+
+        function addMessage(person, message) {
+            var chatUser = getChatUser();
+            if (chatUser == person){
+                displayOwnMessage(person, message);
+            }
+            if (chatUser != person){
+                displayOthersMessage(person, message);
+            }
+            chatHistoryWindow.scrollTop = chatHistoryWindow.scrollHeight;                
+        }
+
+        function displayOwnMessage(person, message) {
+            var ownTemplate = '<li class="clearfix"> \
+                    <div class="my-message float-right"> \
+                        '+message+' \
+                    </div> \
+                </li>';
+            messageWindow.innerHTML += ownTemplate;          
+        }
+
+        function displayOthersMessage(person, message) {
+            var otherTemplate = '<li class="clearfix"> \
+                    <div class="message-data"> \
+                    <img src="images/gif/'+person+'.gif"> \
+                    </div> \
+                    <div class="other-message"> \
+                    <span class="message-data-name" >'+person+'</span> \
+                        '+message+' \
+                    </div> \
+                </li>';
+            messageWindow.innerHTML += otherTemplate;
+            //make ping noise            
+            audio.play();
+        } 
+      
+
+        // Connect via WebSocket
+        var loc = window.location;
+        var wss = new WebSocket((loc.protocol === "https:" ? "wss://" : "ws://") + loc.host + "/Chat");
+       
+        // Output messages received via WebSocket
+        wss.onmessage = function (messageReceived) {
+            try {
+                var parsedReceived = JSON.parse(messageReceived.data);
+            } catch (e) {
+                console.log('Invalid JSON: ', messageReceived.data);
+                return;
+            }
+            // Chat history
+            if (parsedReceived.type === 'history') { // entire message history
+                console.log('History Received');
+                // insert every message from history to the chat window
+                for (var i=0; i < Object.keys(parsedReceived.data).length; i++) {
+                    addMessage(parsedReceived.data[i].person, parsedReceived.data[i].message);
+                }
+            } else {
+                // Single message
+                console.log('single message received: '+parsedReceived.messageUser+'-'+parsedReceived.messageText);                
+                addMessage(parsedReceived.messageUser, escapeHTML(parsedReceived.messageText));
+            }
+        }
+        // Send message via WebSocket
+        function messageSubmit() {
+            var txt = messageTextArea.value;
+            var chatUser = getChatUser();
+            console.log('chatUser:'+chatUser);
+            data = (JSON.stringify({ messageUser: chatUser, messageText: txt} ));
+            wss.send(data);
+            messageTextArea.value = '';
+            messageTextArea.blur();
+            return false;
+        }
+
+        messageTextArea.addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                messageSubmit();
+                
+            }
+        });
+
+        function getChatUser(){
+            return sessionStorage.getItem("avatar");
+        }
+
+        function showAvatarList() {
+        let myRequest = new Request('/getimages');
+            fetch(myRequest).then(function(response) {
+                if (!response.ok) {
+                    throw new Error('HTTP error, status = ' + response.status);
+                }             
+                return response.text().then(function(createAvatars) {
+                        var parsedReceived = JSON.parse(createAvatars)
+                        var avatarList = '';
+                        parsedReceived.forEach(function(data) {
+                            console.log(data.name);
+                            if (data.name != 'Server'){
+                                avatarList = avatarList +'<img src="images/gif/'+data.name+'.gif" title="'+data.name+'" id="'+data.name+'">';
+                            }
+                                                
+                         });
+                        document.getElementById('image-list').innerHTML = avatarList;
+                    });
+                });
+        }
+
+        function addAvatarToHead(avatar){
+            document.getElementById('current-user').innerHTML = avatar + ' <img src="images/gif/'+avatar+'.gif" ">';
+        }
+
+        document.getElementById("image-list").addEventListener('click', function(e) {
+            sessionStorage.setItem('avatar',e.target.id);
+            document.getElementById('avatars').style.display = 'none';
+            document.getElementById('chat').style.display = 'block';
+            addAvatarToHead(sessionStorage.getItem("avatar"));
+        }, false);
+
+        if (sessionStorage.getItem("avatar")) {
+            document.getElementById('chat').style.display = 'block';
+            addAvatarToHead(sessionStorage.getItem("avatar"));
+        } else {
+            document.getElementById('avatars').style.display = 'block';
+            showAvatarList();
+        }
+
+
+        
+        
+    </script>
+
+    </body>
+</html>

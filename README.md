@@ -1,5 +1,5 @@
 # neonious-chat
-The Neonious One is a IoT board which utilizes the ESP32 microcontroller. It’s programmable directly on the chip with an onboard IDE using JavaScript and the Node.JS API.
+Node.js based chat room running on an ESP32 Microcontroller board. The Neonious One is a IoT board which utilizes the ESP32 microcontroller. It’s programmable directly on the chip with an onboard IDE using JavaScript and the Node.JS API.
 
 Full details and a demo on the blog here: https://robotzero.one/node-js-chat-server-esp32/
 
